@@ -1,0 +1,41 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Environments
+.venv/
+venv/
+ENV/
+env/
+ENV/
+
+# Secrets & Credentials
+credentials.json
+token.json
+
+# Local databases and logs
+*.log
+logs/
+*.db
+*.sqlite3
+
+# Uploaded documents
+uploads/
+downloads/
+
+# Generated sheets & exports
+exports/
+
+# VS Code / IDE configuration
+.vscode/
+.idea/
+.DS_Store
+
+# Large dataset CSVs (too big for GitHub)
+data set/*.csv
+data set/*.xlsx
+
+# Backup zip files
+backup/
+*.zip

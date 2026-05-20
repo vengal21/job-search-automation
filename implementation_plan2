@@ -1,0 +1,107 @@
+# Job Search Automation — Bug Fixes + Flask Frontend
+
+## Overview
+Full audit of the existing backend workflow + building a Flask web frontend that lets the user:
+1. Upload a resume **or** type skills/role manually
+2. Pick location mode & job boards
+3. Trigger the job search (with live progress)
+4. See results in-page **and** get a direct link to the Google Sheet
+
+---
+
+## 🐛 Bugs & Issues Found in the Current Workflow
+
+### 1. `credentials.json` uses `"installed"` flow (Desktop app) — will block in a server context
+- **File:** `sheets_exporter.py` → `_get_gspread_client()`
+- **Problem:** `InstalledAppFlow.run_local_server(port=0)` opens a browser on the **server machine**. When Flask is running and a request comes in, this will hang or fail in a web context.
+- **Fix:** On first OAuth, do the flow before the server starts (CLI), or redirect the user to an OAuth URL from the frontend. For simplicity we'll use a pre-auth check: if `token.json` doesn't exist, we show an "Authenticate Google" button in the UI that triggers the flow via a `/auth/google` route.
+
+### 2. `exporter.py` — `GradientFill` imported but never used (unused import)
+- **File:** `exporter.py`, line 14
+- **Fix:** Remove `GradientFill` from imports.
+
+### 3. `naukri_scraper.py` — CSS selectors likely stale (Naukri revamped UI in 2024)
+- **File:** `naukri_scraper.py`, lines 168–181, 213–229
+- **Problem:** Naukri updated their job card HTML. Selectors like `article.jobTuple`, `.subTitle`, `.locWdth`, `.salwdth` are **no longer present** in Naukri's current DOM. This means Naukri scraping **returns 0 results silently**.
+- **Fix:** Update selectors to current Naukri DOM: `div[class*="srp-jobtuple"]`, `a.title[href]` → `a[class*="title"]`, `.comp-name`, `span[class*="loc"]`, `span[class*="sal"]`, `span[class*="job-post-day"]`.
+
+### 4. `job_searcher.py` — `list[dict]` type hints require Python 3.9+
+- **File:** `job_searcher.py`, line 47, 233, 265 etc.
+- Not a runtime issue on Python 3.9+ but worth noting. No change needed if user is on 3.9+.
+
+### 5. `sheets_exporter.py` — `gspread.authorize()` is deprecated in gspread 6.x
+- **File:** `sheets_exporter.py`, line 141
+- **Fix:** Replace with `gspread.Client(auth=creds)` or use `gspread.oauth_from_dict()` approach. The correct modern call is `gspread.authorize(creds)` is still present in gspread 6.x for backwards compat, so this is low risk, but the clean approach is `gc = gspread.Client(auth=creds)`.
+
+### 6. `sheets_exporter.py` — hyperlink patch loop makes N individual API calls (slow / quota risk)
+- **File:** `sheets_exporter.py`, lines 285–289
+- **Problem:** Each `ws.update_cell(...)` is a separate HTTP request. For 50 jobs = 50 API calls. This can hit Google API quota and is very slow.
+- **Fix:** Write all hyperlinks as `=HYPERLINK(...)` formulas in the initial batch `ws.update("A1", rows)` call instead of patching them individually. The `_job_to_row()` function should return the HYPERLINK formula string directly.
+
+### 7. `requirements.txt` — missing `flask-sse` or equivalent for SSE (progress streaming)
+- We'll use Flask's native streaming response (`stream_with_context`) — no extra package needed.
+
+### 8. No Flask `app.py` exists — templates/static dirs are empty
+- Need to create: `app.py`, `templates/index.html`, `static/style.css`, `static/app.js`
+
+---
+
+## Proposed Changes
+
+### Backend Fixes
+
+#### [MODIFY] `exporter.py`
+- Remove unused `GradientFill` import
+
+#### [MODIFY] `sheets_exporter.py`
+- Replace `gspread.authorize(creds)` → `gspread.Client(auth=creds)`
+- Change `_job_to_row()` to emit `=HYPERLINK(url,"Apply →")` formula string directly
+- Remove the per-cell hyperlink loop (lines 285–289)
+- Remove the now-unnecessary individual `ws.update_cell()` calls
+
+#### [MODIFY] `naukri_scraper.py`
+- Update CSS selectors to match Naukri's current (2024/2025) DOM
+
+---
+
+### New Flask App
+
+#### [NEW] `app.py`
+- Routes:
+  - `GET /` — serve the frontend
+  - `POST /search` — accept resume (file) or skills+role (JSON), run job search, stream progress via SSE
+  - `GET /stream/<job_id>` — SSE progress endpoint
+  - `GET /auth/google` — trigger OAuth flow
+  - `GET /auth/callback` — OAuth callback (for web flow if needed; desktop flow uses `run_local_server`)
+
+#### [NEW] `templates/index.html`
+Full-featured SPA-style page with:
+- **Step 1:** Resume upload (drag-and-drop) OR manual skills/role entry (toggle)
+- **Step 2:** Location mode selector (Chennai / Remote India / Remote Global / Outside India)
+- **Step 3:** Job board toggles (LinkedIn/Indeed/Glassdoor/Google/Naukri)
+- **Search button** → shows live progress bar + status messages (via SSE)
+- **Results panel** → job cards table (Title, Company, Location, Salary, Source, Score, Apply link)
+- **Google Sheets button** → opens the sheet in a new tab once done
+- **Auth section** → "Connect Google Account" banner if `token.json` missing
+
+#### [NEW] `static/style.css`
+- Dark-mode premium design, glassmorphism cards, smooth animations
+
+#### [NEW] `static/app.js`
+- Handles form submit, file upload preview, SSE progress, results rendering
+
+---
+
+## Verification Plan
+
+### Automated
+- Run `python app.py` and confirm server starts on `http://localhost:5000`
+- Confirm `/` returns 200 with the HTML page
+- Confirm `/search` accepts a POST with skills JSON
+
+### Manual (Browser)
+- Open `http://localhost:5000`
+- Upload a PDF resume → verify skills are shown
+- Run a search → verify live progress bar
+- After completion → verify job cards appear in the results panel
+- Click "Open in Google Sheets" → verify the Sheet opens with data

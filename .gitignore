@@ -1,0 +1,46 @@
+# === Python ===
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyo
+*.pyd
+
+# === Virtual Environments ===
+.venv/
+venv/
+env/
+ENV/
+
+# === Secrets & Credentials ===
+credentials.json
+token.json
+*.env
+.env.*
+
+# === Logs & Databases ===
+*.log
+logs/
+*.db
+*.sqlite3
+
+# === IDE / Editor ===
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# === Large Files & Backups ===
+backup/
+*.zip
+*.tar.gz
+*.tar
+*.rar
+*.7z
+
+# === Large Datasets (too big for GitHub) ===
+**/*.csv
+**/*.xlsx
+data set/
+exports/
+uploads/
+downloads/
