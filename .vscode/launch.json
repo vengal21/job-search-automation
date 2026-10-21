@@ -1,0 +1,28 @@
+{
+    "configurations": [
+        {
+            "type": "debugpy",
+            "request": "launch",
+            "name": "Run Gogoi",
+            "program": "${workspaceFolder}/src/start_job_bot.py",
+            "console": "integratedTerminal",
+            "justMyCode": false
+        },
+        {
+            "type": "debugpy",
+            "request": "launch",
+            "name": "Run Gogoi Tests",
+            "console": "integratedTerminal",
+            "justMyCode": false,
+            "purpose": [
+                "debug-test"
+            ],
+            "env": {},
+            "args": [
+                "-m",
+                "pytest",
+                "${workspaceFolder}/tests"
+            ]
+        }
+    ]
+}
