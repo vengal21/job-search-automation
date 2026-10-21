@@ -1,0 +1,7 @@
+### Sample Request URL
+GET https://www.googleapis.com/customsearch/v1
+    ?key={{$dotenv GOOGLE_API_KEY}}
+    &cx={{$dotenv GOOGLE_SEARCH_ENGINE_ID}}
+    &q=new+jobs
+    &start=1
+

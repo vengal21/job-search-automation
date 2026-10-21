@@ -1,0 +1,53 @@
+remote: true
+hybrid: true
+onsite: true
+
+experience_level:
+  internship: false
+  entry: true
+  associate: true
+  mid_senior_level: true
+  director: false
+  executive: false
+
+job_types:
+  full_time: true
+  contract: false
+  part_time: false
+  temporary: true
+  internship: false
+  other: false
+  volunteer: true
+
+date:
+  all_time: false
+  month: false
+  week: false
+  24_hours: true
+
+positions:
+  - Software engineer
+
+# One or more keywords to look for in the job description, for example, "chromium browser". This field is optional.
+# Only use this field to find jobs that require specific technologies, products, or skills that is not mentioned in the job title.
+# Warning: Any jobs without matching keywords in the job description will be skipped.
+keywords_whitelist:  
+
+locations:
+  - Germany
+
+apply_once_at_company: true
+
+distance: 100
+
+company_blacklist:
+  - wayfair
+  - Crossover
+
+title_blacklist:
+  - word1
+  - word2
+
+location_blacklist:
+  - Brazil
+
