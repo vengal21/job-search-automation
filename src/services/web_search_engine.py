@@ -404,7 +404,7 @@ class BraveSearchEngine(WebSearchEngine):
         params.update({
             "q": query,
             "offset": offset,
-            "limit": limit
+            "count": limit
         })
 
         response = requests.get(self.BRAVE_SEARCH_URL, headers=headers, params=params, timeout=(5, 15))

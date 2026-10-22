@@ -87,7 +87,8 @@ def test_brave_search_engine(mock_get):
             "Accept-Encoding": "gzip",
             "X-Subscription-Token": "mock_brave_api_key",
         },
-        params={"q": "test query", "offset": 0, "limit": 10},
+        params={"q": "test query", "offset": 0, "count": 10},
+        timeout=(5, 15),
     )
     assert len(result.results) == 2
     assert result.results[0].title == "result1"

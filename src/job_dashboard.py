@@ -29,6 +29,34 @@ class SelectionConflict(ValueError):
     """The request was valid, but the selected jobs are no longer applicable."""
 
 
+def _collection_completion_message(exit_code: int | None) -> str:
+    if exit_code != 0:
+        return "Job search failed. Previous results were kept; check data_folder/output/dashboard_discovery.log."
+    try:
+        latest = json.loads((OUTPUT / "latest_search.json").read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return "Job search finished. The latest search results are shown."
+    stats = latest.get("searchStats", {}) if isinstance(latest, dict) else {}
+    if not isinstance(stats, dict) or not isinstance(stats.get("queries"), int):
+        return "Job search finished. The latest search results are shown."
+    window = {"24h": "last 24 hours", "3d": "past 3 days", "7d": "past 7 days"}.get(latest.get("window"), "any indexed date")
+    count = len(latest.get("rows", [])) if isinstance(latest.get("rows"), list) else 0
+    message = (
+        f"Search finished for {window}: {count} unique jobs from {stats.get('pagesFetched', 0)} result pages "
+        f"across {stats['queries']} board/location/role searches. Saved role, location, work-mode, date, and blacklist filters were applied."
+    )
+    excluded = stats.get("excludedByPreferences", 0)
+    if isinstance(excluded, int) and excluded:
+        message += f" {excluded} search results were excluded by your saved blacklists."
+    incomplete = stats.get("incompleteQueries", 0)
+    if isinstance(incomplete, int) and incomplete:
+        message += f" Results may be incomplete: {incomplete} searches reached the page limit or had a page error; check dashboard_discovery.log."
+    else:
+        message += " All result pages reported by the provider were checked; live-board listings may still be missing from its index."
+    message += " Search indexes lack reliable structured experience/job-type fields, so only explicitly disallowed title labels are filtered; ambiguous listings stay available for review."
+    return message
+
+
 def status_payload():
     with RUNTIME["lock"]:
         process = RUNTIME["process"]
@@ -36,7 +64,7 @@ def status_payload():
             RUNTIME["exitCode"] = process.returncode
             RUNTIME["process"] = None
             operation = RUNTIME.get("operation")
-            RUNTIME["message"] = ("Job search finished. The latest search results are shown." if operation == "collect" and process.returncode == 0 else "Job search failed. Previous results were kept; check data_folder/output/dashboard_discovery.log." if operation == "collect" else "Operation finished.")
+            RUNTIME["message"] = (_collection_completion_message(process.returncode) if operation == "collect" else "Operation finished.")
             RUNTIME["operation"] = None
         result = {"version": 5, "running": RUNTIME["process"] is not None, "message": RUNTIME["message"], "exitCode": RUNTIME["exitCode"], "operation": RUNTIME["operation"]}
     result["applicationSession"] = SESSION.payload()
