@@ -47,7 +47,7 @@ def _collection_completion_message(exit_code: int | None) -> str:
     )
     excluded = stats.get("excludedByPreferences", 0)
     if isinstance(excluded, int) and excluded:
-        message += f" {excluded} search results were excluded by your saved blacklists."
+        message += f" {excluded} search results were excluded by your saved preference filters."
     incomplete = stats.get("incompleteQueries", 0)
     if isinstance(incomplete, int) and incomplete:
         message += f" Results may be incomplete: {incomplete} searches reached the page limit or had a page error; check dashboard_discovery.log."
