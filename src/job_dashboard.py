@@ -5,6 +5,7 @@ import json
 import atexit
 import mimetypes
 import os
+import re
 import subprocess
 import sys
 import threading
@@ -55,6 +56,33 @@ def _collection_completion_message(exit_code: int | None) -> str:
         message += " All result pages reported by the provider were checked; live-board listings may still be missing from its index."
     message += " Search indexes lack reliable structured experience/job-type fields, so only explicitly disallowed title labels are filtered; ambiguous listings stay available for review."
     return message
+
+
+def _resolve_data_app_script() -> Path:
+    configured_path = os.environ.get("DATA_APP_SCRIPT")
+    if configured_path:
+        script = Path(configured_path).expanduser()
+        if script.is_file():
+            return script
+        raise FileNotFoundError(
+            f"DATA_APP_SCRIPT points to a missing file: {script}. "
+            "Set it to the installed Data plugin's scripts/data-app.mjs file."
+        )
+
+    codex_home = Path(os.environ.get("CODEX_HOME", str(Path.home() / ".codex"))).expanduser()
+    plugin_root = codex_home / "plugins" / "cache" / "openai-curated-remote" / "data-analytics"
+    candidates = [path for path in plugin_root.glob("*/scripts/data-app.mjs") if path.is_file()]
+    if candidates:
+        def version_key(path: Path) -> tuple[int, ...]:
+            return tuple(int(part) for part in re.findall(r"\d+", path.parents[1].name))
+
+        return max(candidates, key=version_key)
+
+    raise FileNotFoundError(
+        f"The Data plugin build script was not found under {plugin_root}. "
+        "Install or reconnect the Data plugin in Codex, then run Gogoi again. "
+        "If it is installed in a different location, set DATA_APP_SCRIPT to its full scripts/data-app.mjs path."
+    )
 
 
 def status_payload():
@@ -242,14 +270,20 @@ class Handler(BaseHTTPRequestHandler):
 
 def build_dashboard():
     snapshot = ROOT / "job_dashboard" / "src" / "data.json"
-    snapshot.write_text(json.dumps(make_snapshot(), indent=2), encoding="utf-8")
     node = Path(os.environ.get("CODEX_NODE", r"C:\Users\W2632\.cache\codex-runtimes\codex-primary-runtime\dependencies\node\bin\node.exe"))
-    script = Path(os.environ.get("DATA_APP_SCRIPT", r"C:\Users\W2632\.codex\plugins\cache\openai-curated-remote\data-analytics\1.0.11\scripts\data-app.mjs"))
+    if not node.is_file():
+        raise FileNotFoundError(f"The configured Node.js executable was not found: {node}. Set CODEX_NODE to its full path.")
+    script = _resolve_data_app_script()
+    snapshot.write_text(json.dumps(make_snapshot(), indent=2), encoding="utf-8")
     subprocess.run([str(node), str(script), "build", "--project-dir", str(ROOT / "job_dashboard"), "--separate-data"], cwd=ROOT / "job_dashboard", check=True)
 
 
 if __name__ == "__main__":
-    build_dashboard()
+    try:
+        build_dashboard()
+    except FileNotFoundError as exc:
+        print(f"[dashboard] startup failed: {exc}", file=sys.stderr, flush=True)
+        raise SystemExit(1)
     url = f"http://{HOST}:{PORT}/"
     print(f"Private job dashboard listening at {url}; open this address in Chrome. Press Ctrl+C to stop.", flush=True)
     ThreadingHTTPServer((HOST, PORT), Handler).serve_forever()
